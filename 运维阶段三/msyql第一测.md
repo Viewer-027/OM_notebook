@@ -15,7 +15,7 @@
 建库： create databases  db1;
 
 键表： create  table  tb1 (
-    id  int  auto_increment  primary  key,
+    id          int  auto_increment  primary  key,
     age       char(5),    
     name   varchar(50), 
     pw        varchar(50)
@@ -132,7 +132,25 @@ insert into staff(staffid,staffname,salary,departid) values
 (211,'张小三',3600,11004);
 ```
 
+1.请简述SQL语句分类有哪些
 
+1. 数据查询语言 (DQL, Data Query Language)
+2. 数据操作语言 (DML, Data Manipulation Language)
+3. 数据定义语言 (DDL, Data Definition Language)
+4. 数据控制语言 (DCL, Data Control Language)
+5. 事务控制语言 (TCL, Transaction Control Language)
+
+2.写出以下数据库服务相关参数
+
+主配置文件: /etc/my.cnf.d/mysql-server.cnf
+
+数据库目录:/usr/lib/mysql
+
+端口号:3306
+
+进程名:  mysqld
+
+进程所有者: mysql
 
 
 

@@ -120,8 +120,6 @@ yum -y install  redis
 systemctl start redis
 ```
 
-#### 命令使用
-
 ```bash
 # 服务启动
 systemctl restart redis-server  # Ubuntu系统
@@ -214,8 +212,92 @@ git reflog
 ##### Git分支操作
 
 ```bash
+git branch -v                   #查看分支信息
+git branch hotfix               #创建hotfix分支
+git branch feature              #创建feature分支
+git checkout hotfix             #切换分支
+git branch -d develop           #删除develop分支
+## Git合并分支
+#无冲突分支合并
+
+#有冲突分支合并（修改不同分支中相同文件的相同行）
+git merge hotfix                #合并hotfix分支到master分支
+```
+
+#### git远程推送
+
+```bash
+git add.
+git commit -m "2025/05/15"
+git remote add origin https://gitee.com/dsa772819sad/ops-note-taker.git
+git push -u origin "master"
+
+# origin 默认远程仓库名称
+# -u或 --set-upstream: 这个选项创建了一个上游分支跟踪关系。这意味着之后你只需要运行 git push 而不需要指定远程仓库名和分支名，Git 会知道你要推送哪个本地分支到哪个远程分支运行 git pull 时，Git 也会知道从哪个远程分支拉取更新。
 
 ```
+
+
+
+
+
+## GitLab安装使用
+
+```bash
+#安装GitLab软件包,强制忽略依赖安装
+[root@GitLab ~]# rpm -ivh --nodeps gitlab-ce-12.4.6-ce.0.el7.x86_64.rpm     
+#重载GitLab配置（需要耐心等待）
+[root@GitLab ~]# gitlab-ctl reconfigure
+...
+#重启GitLab相关服务
+[root@GitLab ~]# gitlab-ctl restart
+
+#GitLab主机确认80端口被监听
+#浏览器访问： http://192.168.88.20/
+```
+
+
+
+## Jenkins安装使用
+
+```bash
+#Jenkins主机安装OpenJDK11环境
+[root@Jenkins ~]# yum -y install java-11-openjdk-devel.x86_64
+#安装工具相关软件(Git用于拉取代码、postfix用于发邮件)
+[root@Jenkins ~]# yum -y install git postfix 
+#安装jenkins软件包
+[root@jenkins ~]# yum -y jenkins-2.361.4-1.1.noarch.rpm
+
+#启动Jenkins服务
+[root@Jenkins ~]# systemctl enable jenkins.service              #设置Jenkins开机自启动
+[root@Jenkins ~]# systemctl start jenkins.service               #启动Jenkins服务器
+[root@Jenkins ~]# ss -antpul | grep java                        #确认8080端口被监听
+tcp   LISTEN 0      50     *:8080     *:*    users:(("java",pid=13602,fd=8))
+
+#获取Jenkins初始密码
+[root@Jenkins ~]# cat /var/lib/jenkins/secrets/initialAdminPassword 
+1aaf609acf3843a8aaf17e8b1f22e8ea
+
+#浏览器访问： http://192.168.88.30:8080/
+
+#离线部署Jenkins插件
+[root@Jenkins ~]# ls /var/lib/jenkins/plugins/            #空目录，没有任何插件
+
+#解压Jenkins插件，保留文件归属(-P绝对路径解压，-p保留权限)
+[root@Jenkins ~]# tar -xPpf PROJECT02/Jenkins/jenkins_plugins.tar.gz -C /
+
+[root@Jenkins ~]# ls -l /var/lib/jenkins/plugins/               #确认该目录下文件归属
+```
+
+
+
+
+
+
+
+
+
+
 
 
 

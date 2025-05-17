@@ -1,8 +1,161 @@
 # DBA
 
+## 命令使用
+
+#### 修改表
+
+```sql
+## 修改表名
+alter table studb.stu rename studb.stuinfo; 
+## 删除表头
+alter table studb.stuinfo drop age ; 
+## 查看表头
+desc stuinfo; 
+## 添加表头，默认添加在末尾
+alter table studb.stuinfo add  mail  char(30) ; 
+## after 添加在指定表头名的下方
+alter table  studb.stuinfo 
+add number  char(9) first , 
+add  school char(10) after name;
+## 修改表头数据类型
+alter table  studb.stuinfo  modify  mail varchar(50);
+```
+
+#### 复制表
+
+```sql
+## select 复制表只复制数据、表字段、字段类型
+create table studb.salary1  select  * from tarena.salary;
+## like 复制表只复制整个表结构
+create table studb.salary2  like tarena.salary;
+```
+
+#### 数据批量处理
+
+```bash
+## 默认目录
+/var/lib/mysql-files/
+
+## 修改检索目录为/myload
+vim /etc/my.cnf.d/mysql-server.cnf
+[mysqld]
+secure_file_priv=/myload  添加此行
+## 赋予服务对于该目录的权限
+chown mysql:mysql /myload
+```
+
+```sql
+## 导入数据
+load data infile "/myload/passwd" into table db1.user3 
+fields terminated by ":"   # 字段间隔
+lines terminated by "\n" ; # 行间隔
+
+## 导出数据
+select  name , email , phone_number 
+from tarena.employees  
+where employee_id <= 5 into outfile "/myload/employees.txt"  fields terminated by ":" lines terminated by "!!!!!!";
+```
 
 
-### sql执行顺序
+
+### 数据类型
+
+**数值类型**
+整型：
+
+![image-20250516175900052](images/image-20250516175900052.png)
+
+浮点类型：
+
+![image-20250516180006564](images/image-20250516180006564.png)
+
+定点数（Fixed Point）：DECIMAL 主要用于需要精确表示小数的场景，比如货币金额等。
+
+
+
+**字符类型**
+
+![image-20250516175645178](images/image-20250516175645178.png)
+
+**枚举类型**
+
+enum类型   单选
+
+set类型   	多选
+
+
+
+**时间日期型**
+
+![image-20250516180106104](images/image-20250516180106104.png)
+
+
+
+
+
+### 约束分类
+
+![image-20250516173105830](images/image-20250516173105830.png)
+
+```sql
+## 删除约束
+alter table db1.t36 drop primary key;
+
+## 添加约束
+alter table db1.t36 add primary key(card_id);
+
+## 一张表只能有一个主键，但是一个主键可以包含多个字段
+create table db1.t37(
+	name char(10),
+    char_id char(18), 
+    class char(10)
+    primary key (name,char_id)
+);
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 数据库服务相关参数
+
+主配置文件: /etc/my.cnf.d/mysql-server.cnf
+
+数据库目录:/usr/lib/mysql
+
+端口号:3306
+
+进程名:  mysqld
+
+```bash
+ss -antlup | grep 3306
+```
+
+进程所有者: mysql
+
+```bash
+ps -aux | grep mysqld
+```
+
+
+
+## sql执行顺序
 
 - FROM：首先确定数据来源，包括表、视图等，并处理任何JOIN操作。
 - WHERE：对FROM子句产生的结果集进行过滤。只有满足WHERE条件的行才会被保留下来。
@@ -15,9 +168,7 @@
 
 
 
-
-
-### 表连接区别
+## 表连接区别
 
 ![img](images/LINUXNSD_V01DBADAY03_006.png)
 
@@ -74,3 +225,117 @@
 - **使用场景**：当你需要查询表中存在层次结构的数据时，比如员工和他们的经理都在同一个表中。
 
 每种连接类型都有其特定的应用场景，选择合适的连接类型可以帮助你更高效地获取所需的数据。理解这些连接类型的区别对于编写有效的SQL查询至关重要。
+
+
+
+## 注意事项及错误信息
+
+```bash
+SQL 错误 [1064] [42000]: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ORDER BY nx DESC' at line 9
+
+## 解决
+GROUP BY 子句中的列：当你使用了聚合函数（如 SUM()），并在 SELECT 中选择了非聚合列时，所有非聚合列都必须出现在 GROUP BY 子句中。
+```
+
+
+
+```bash
+SQL 错误 [1366] [HY000]: Incorrect string value: '\xE5\xAE\xA2\xE6\x9C\x8D...' for column 'departname' at row 1
+
+## 解决
+字符编码不匹配的问题。为了确保能够正确地存储和处理中文字符，你需要确保数据库、表以及列都使用支持中文的字符集，如 utf8mb4。
+
+CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+
+
+
+
+# Redis
+
+#### 软件安装使用
+
+```bash
+[root@redis64 ~]# yum -y install redis  安装软件
+[root@redis64 ~]# systemctl  start redis 启动服务
+[root@redis64 ~]# netstat  -utnlp  | grep redis-server  查看端口
+tcp        0      0 127.0.0.1:6379    0.0.0.0:*    LISTEN      1970/redis-server 1
+[root@redis64 ~]# redis-cli  连接服务
+[root@redis64 ~]# redis-cli  -h 192.168.88.64 -p 6364 –a 123456
+```
+
+配置文件
+
+```bash
+[root@redis64 ~]# vim /etc/redis.conf  
+69  bind 192.168.88.64  ##IP地址
+92  port 6364 ##端口号
+508 requirepass 123456  ##密码
+
+838 cluster-enabled  yes                         ##启用集群功能  
+846 cluster-config-file  nodes-6379.conf         ##存储集群信息文件
+852 cluster-node-timeout  5000  ##集群中主机通信超时时间
+```
+
+#### 常用命令
+
+- mset mget keys type
+- exists ttl expire move select
+- del flushdb flushall
+
+```bash
+# mset 一次存储多个变量
+mset name pyf age 80 class nsd2502
+# mget 一次查看多个变量
+mget name age
+# keys *  查看所有变量
+# select 1  切换 1号库
+# move age 1  移动变量到其他库里
+# exists  检查变量是否存储
+exists  name
+# expire 命令设置变量的过期时间，不设置 变量永不过期
+expire sex 15
+# ttl 查看变量过期时间
+ttl sex
+# type 查看变量存储数据类型
+type sex
+# del 删除内存里面的变量
+del name
+# flushdb  删除当前库的所有数据
+# flushall 清空内存
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
