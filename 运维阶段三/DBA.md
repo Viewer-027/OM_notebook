@@ -19,7 +19,7 @@
 
 
 
-## 事务：
+## Mysql事务：
 
 ​    针对于DML
 ​    一组SQL语句要么全部执行，要么全部不执行
@@ -123,7 +123,6 @@ grant 权限列表 on 库名 to 用户名@"客户端地址";
 ```sql
 //删除已有授权用户的权限
 pevoke 权限列表 on 库名 from 用户名@"客户端地址";
-
 ```
 
 
@@ -203,6 +202,16 @@ pevoke 权限列表 on 库名 from 用户名@"客户端地址";
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## MySQL锁
 
 锁类型：
@@ -216,6 +225,16 @@ pevoke 权限列表 on 库名 from 用户名@"客户端地址";
 ​				行级锁
 ​				表级锁
 ​				页级锁	
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -273,6 +292,370 @@ mysqlbinlog mysql52.000001 | mysql -uroot -p'123456'
 
 
 
+## Mysql主从同步
+
+#### 原理
+
+![image-20250521093049373](images/image-20250521093049373.png)
+
+Master
+
+--启用binlog日志，记录所有数据库更新和修改操作
+
+Slave
+
+--Slave_IO: 复制master主机 binlog日志文件里的sql命令到本机的relay-log文件里
+
+--Slave_SQL:执行本机relay-log文件里的SQL语句，实现Master数据一致。
+
+#### 主从同步结构
+
+一主一从:搭建简单,副本少
+
+主主复制:多节点写入容易造成死锁
+
+一主多从:副本多且无关联,主节点负载高
+
+联级复制:主节点负载相对低,但副本之间存在关联
+
+多主一从：
+
+
+
+#### 
+
+#### 构建主从同步
+
+**一主一从**
+
+```bash
+## Master
+vim /etc/my.cnf.d/mysql-server.cnf
+[mysqld]
+log_bin=mysql53
+server_id=53
+
+mysql> create user repluser@"%" identified by "123456";
+mysql> grant replication slave on *.*  to repluser@"%";
+mysql> show master status;   #查看master状态信息
+
+## Slave
+vim /etc/my.cnf.d/mysql-server.cnf
+[mysqld]
+server-id=54
+
+mysql> change master to  
+master_host="192.168.88.53",        #主服务器ip地址
+master_user="repluser",			    #主服务器授权用户
+master_password="123456",		    #授权用户密码
+master_log_file="mysql53.000001",   #主服务器binlog日志
+master_log_pos=667;					#日志偏移量
+mysql> start slave ; 
+mysql> show slave status \G 
+```
+
+**一主多从**
+
+重复配置如上
+
+
+
+## MySQL读写分离
+
+**拓扑**
+
+![image-20250521190021418](images/image-20250521190021418.png)
+
+Mysql数据库的读操作和写操作分别分配到不同的服务器上，通过这种方式可以提高数据库的并发处理能力和性能、降低系统失败的风险。要保证负责读访问主机与负责写访问主机的数据一致。
+
+
+
+**中间软件**
+
+![image-20250521142844785](images/image-20250521142844785.png)
+
+
+
+
+
+### Mycat
+
+```bash
+# 安装
+## http://www.mycat.org.cn/ 下载启动包和核心jar
+yum -y install java-1.8.0-openjdk.x86_64
+unzip mycat2-install-template-1.21.zip
+mv mycat /usr/local/
+cp mycat2-1.21-release-jar-with-dependencies.jar  /usr/local/mycat/lib/
+chmod  +x /usr/local/mycat/bin/* 
+# 配置mycat服务器
+## 定义客户端mycat服务使用用户及密码
+vim /usr/local/mycat/conf/users/root.user.json 
+{
+        "dialect":"mysql",
+        "ip":null,
+        "password":"123456", 密码
+        "transactionType":"proxy",
+        "username":"mycat" 用户名
+}
+------
+## 定义连接的数据库服务器
+ vim /usr/local/mycat/conf/datasources/prototypeDs.datasource.json 
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"READ_WRITE",
+        "maxCon":1000,
+        "maxConnectTimeout":3000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"prototypeDs",
+        "password":"123456", #密码
+        "type":"JDBC",
+        "url":"jdbc:mysql://localhost:3306/mysql?useUnicode=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8", #连接本机的数据库服务
+        "user":"plj", #用户名
+        "weight":0
+}
+## 在mycat58主机运行数据库服务
+mysql> create user plj@"%" identified by "123456";  //创建plj用户
+mysql> grant all on *.* to plj@"%" ;   //授予权限
+mysql> exit  //断开连接
+
+## 启动mycat
+/usr/local/mycat/bin/mycat start
+netstat  -utnlp  | grep 8066
+tcp6       0      0 :::8066  :::*       LISTEN      57015/java      
+```
+
+ 
+
+**配置读写分离**
+
+```bash
+# 配置读写分离
+mysql -h127.0.0.1 -P8066 -umycat -p654321
+## 添加数据库服务器
+MySQL> /*+ mycat:createdatasource{
+"name":"whost56", 
+"url":"jdbc:mysql://192.168.88.56:3306",
+"user":"plja","password":"123456"
+}*/;
+MySQL> /*+ mycat:createdatasource{
+"name":"rhost57", 
+"url":"jdbc:mysql://192.168.88.57:3306",
+"user":"plja","password":"123456"
+}*/;
+## 查看数据源
+mysql> /*+mycat:showDataSources{}*/ \G
+## 配置数据库服务器添加plja用户
+[root@mysql56 ~]# mysql 
+mysql> create user plja@"%" identified by "123456";
+mysql> grant all on *.* to  plja@"%";
+## 创建集群
+mysql -h127.0.0.1 -P8066 -umycat -p123456
+mysql>/*!mycat:createcluster{
+"name":"rwcluster",
+"masters":["whost56"],
+"replicas":["rhost57"]
+}*/ ;
+## 查看集群信息
+mysql> /*+ mycat:showClusters{}*/ \G
+
+## 修改master角色主机仅负责写访问
+vim /usr/local/mycat/conf/datasources/whost56.datasource.json
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"WRITE", #仅负责写访问
+        "logAbandoned":true,
+        "maxCon":1000,
+        "maxConnectTimeout":30000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"whost56",
+        "password":"123456",
+        "queryTimeout":0,
+        "removeAbandoned":false,
+        "removeAbandonedTimeoutSecond":180,
+        "type":"JDBC",
+        "url":"jdbc:mysql://192.168.88.56:3306?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true",
+        "user":"plja",
+        "weight":0
+}
+//修改slave角色主机仅负责读访问
+vim /usr/local/mycat/conf/datasources/rhost57.datasource.json
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"READ",  #仅负责读访问
+        "logAbandoned":true,
+        "maxCon":1000,
+        "maxConnectTimeout":30000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"rhost57",
+        "password":"123456",
+        "queryTimeout":0,
+        "removeAbandoned":false,
+        "removeAbandonedTimeoutSecond":180,
+        "type":"JDBC",
+        "url":"jdbc:mysql://192.168.88.57:3306?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true",
+        "user":"plja",
+        "weight":0
+}
+//修改读策略
+vim /usr/local/mycat/conf/clusters/rwcluster.cluster.json 
+{
+        "clusterType":"MASTER_SLAVE",
+        "heartbeat":{
+                "heartbeatTimeout":1000,
+                "maxRetryCount":3,
+                "minSwitchTimeInterval":300,
+                "showLog":false,
+                "slaveThreshold":0.0
+        },
+        "masters":[
+                "whost56"
+        ],
+        "maxCon":2000,
+        "name":"rwcluster",
+        "readBalanceType":"BALANCE_ALL_READ", #把读访问平均分配给read角色的主机
+        "replicas":[
+                "rhost57"
+        ],
+        "switchType":"SWITCH"
+}
+```
+
+
+
+
+
+
+
+## 数据分片
+
+![image-20250522101716350](images/image-20250522101716350.png)
+
+- 水平分库
+
+将表水平切分分散到不同的库里，每个库有相同的表，但表里的数据不同。
+
+![image-20250522163252600](images/image-20250522163252600.png)
+
+- 水平分表
+
+表的结构不变，数据分散存储到不同表中。每个表的结构一样、数据不一样，所有表的数据合并是表的总数据
+
+
+
+![image-20250522163314080](images/image-20250522163314080.png)
+
+
+
+
+
+![image-20250522163141864](images/image-20250522163141864.png)
+
+
+
+![image-20250522163218894](images/image-20250522163218894.png)
+
+![image-20250522163007130](images/image-20250522163007130.png)
+
+![image-20250522163038050](images/image-20250522163038050.png)
+
+
+
+
+
+```bash
+/*+ mycat:createdatasource{
+"name":"dw1", 
+"url":"jdbc:mysql://192.168.88.61:3306",
+"user":"plj",
+"password":"123456"
+}*/;
+
+/*+ mycat:createdatasource{
+"name":"dr1", 
+"url":"jdbc:mysql://192.168.88.62:3306",
+"user":"plj",
+"password":"123456"
+}*/;
+
+
+/*!mycat:createcluster{
+"name":"c1",
+"masters":["dw1"],
+"replicas":["dr1"]
+}*/;
+
+/*+ mycat:showClusters{}*/ \G
+
+
+
+```
+
+```sql
+create table tarena.employees(
+employee_id  int  primary key,
+name char(10),dept_id int , 
+mail varchar(30)
+) default charset utf8
+dbpartition BY mod_hash(employee_id) tbpartition BY mod_hash(employee_id) 
+tbpartitions 1 dbpartitions 2;
+
+/*
+dbpartitions 2  指定数据库分片的数量为2
+tbpartitions 1  指定每个数据库中表分区数量为1
+*/
+
+
+
+```
+
+**关联表**
+
+MyCat2中对于关联表，不需要有过多的声明，他可以根据分片规则自行判断。--- 相同的分片算法、字段id 例如  ` mod_hash (employee_id)  `
+
+```sql
+create table tarena.salary(
+employee_id int primary key, 
+p_date date , basic int , bonus int 
+) DEFAULT CHARSET=utf8 
+dbpartition BY mod_hash(employee_id) 
+tbpartition BY mod_hash(employee_id) tbpartitions 1;
+```
+
+**全局表**
+
+```sql
+create table tarena.dept(
+dept_id int, 
+dept_name char(10),
+primary key(dept_id)
+)default charset utf8  broadcast;
+
+/*分片策略  broadcast 不分片，广播给所有数据库节点。
+```
+
+
+
+## MySQL高可用解决方案:
+
+​	MySQL双主+Keepalived
+​	MySQL-MMM集群
+​	MySQL-MHA集群
+​	MySQL-Galera集群
+​	PXC集群
+​	MySQL-MGR集群
 
 
 
@@ -283,7 +666,16 @@ mysqlbinlog mysql52.000001 | mysql -uroot -p'123456'
 
 
 
-## 命令使用
+
+
+
+## SQL使用
+
+#### 修改用户密码
+
+```sql
+ALTER USER 'username'@'host' IDENTIFIED BY '新密码';
+```
 
 #### 修改表
 
@@ -672,6 +1064,145 @@ del name
 
 
 
+
+
+
+## redis集群三主三从
+
+搭建集群
+
+```bash
+## ansible-playbook 配置redis
+---
+- name: set redis.conf
+  hosts: all
+  become: yes
+  vars: 
+    redis_port: 6379
+    cluster_config_file: "nodes-{{ redis_port }}.conf"
+    cluster_node_timeout: 5000
+  tasks:
+    - name: install redis
+      yum:
+        name: redis
+        state: present
+    
+    - name: set bind
+      lineinfile:
+        path: /etc/redis.conf
+        regexp: '^bind'
+        line: 'bind {{ ansible_host }}'
+        backrefs: no
+
+    - name: 修改 port 行（第92行）
+      lineinfile:
+        path: /etc/redis.conf
+        regexp: '^port'
+        line: 'port {{ redis_port }}'
+        backrefs: no
+
+    - name: 替换第838行：启用集群模式
+      shell: |
+        sudo sed -i '838c\cluster-enabled yes' /etc/redis.conf
+
+    - name: 替换第846行：设置集群配置文件
+      shell: |
+        sudo sed -i '846c\cluster-config-file {{ cluster_config_file }}' /etc/redis.conf
+
+    - name: 替换第852行：设置集群节点超时时间
+      shell: |
+        sudo sed -i '852c\cluster-node-timeout {{ cluster_node_timeout }}' /etc/redis.conf
+
+    - name: 启动并启用 Redis 服务
+      systemd:
+        name: redis
+        enabled: yes
+        state: started        
+```
+
+创建redis集群
+
+```bash
+# 创建redis集群
+redis-cli  --cluster   create   192.168.88.51:6379  192.168.88.52:6379  192.168.88.53:6379  192.168.88.54:6379 192.168.88.55:6379 192.168.88.56:6379  --cluster-replicas 1
+>>> Creating cluster
+>>> Performing hash slots allocation on 6 nodes...
+Using 3 masters:
+192.168.88.51:6379
+192.168.88.52:6379
+192.168.88.53:6379
+Adding replica 192.168.88.55:6379 to 192.168.88.51:6379
+Adding replica 192.168.88.56:6379 to 192.168.88.52:6379
+Adding replica 192.168.88.54:6379 to 192.168.88.53:6379
+M: 0eb3b7aa0493a19189cba35b0c658202cc20884b 192.168.88.51:6379
+   slots:0-5460 (5461 slots) master
+M: a9cb8ccd31bf3eb70433c00906c9f1a99b5e8441 192.168.88.52:6379
+   slots:5461-10922 (5462 slots) master
+M: f2c1bdb78d8d224c3666fa6440bdf80ba563c581 192.168.88.53:6379
+   slots:10923-16383 (5461 slots) master
+S: bdba77868965371680fa825badff59bf8ef95a81 192.168.88.54:6379
+   replicates f2c1bdb78d8d224c3666fa6440bdf80ba563c581
+S: 11510f42bfd9cf667bab5f31c01476d94984200a 192.168.88.55:6379
+   replicates 0eb3b7aa0493a19189cba35b0c658202cc20884b
+S: fe572ce003ee634c52adc4b42d92d15f847937d7 192.168.88.56:6379
+   replicates a9cb8ccd31bf3eb70433c00906c9f1a99b5e8441
+Can I set the above configuration? (type 'yes' to accept): yes 同意 
+....
+....
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.  //创建成功的提示
+```
+
+
+
+集群操作命令
+
+```bash
+# 查看集群的主节点
+redis-cli  --cluster  info 192.168.88.51:6379
+# 查看集群的主节点和从节点
+redis-cli --cluster check 192.168.88.53:6379
+# 查看集群里所有的key
+redis-cli --cluster call 192.168.88.56:6379 keys \*
+redis-cli -c -h 192.168.88.54 -p 6379
+
+# 高可用性，主节点停止后，它的从节点代替成为新的主节点。
+
+```
+
+在web中的应用
+
+```bash
+yum -y install gcc pcre-devel zlib-devel make
+yum -y install nginx php php-fpm mysqld
+
+## 加载redis模块
+
+
+
+
+
+```
+
+
+
+
+
+
+
+Redis雪崩
+
+在某个时间段内，Redis节点集群中大量的缓存数据同时过期或者失败，导致瞬间来了大量的请求，从而引发Redis服务性能异常下降甚至瘫痪的现象。
+
+Redis击穿
+
+在某个时间点上，针对某一个特定的key大量的请求到来，而该key恰好又不存在或者已经失效，导致请求全部落到数据库上，从而引发数据库压力过大、性能异常下降甚至瘫痪的现象
+
+Redis穿透
+
+是指针对某个key的请求，在缓存和数据库中都不存在，导致每次请求都必须查询数据库，从而引发数据库压力过大、性能异常下降甚至瘫痪的现象。 
 
 
 

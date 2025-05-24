@@ -1,5 +1,49 @@
 # Linux软件安装配置使用
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## MySQL(MariaDB)
 
 #### 安装
@@ -288,6 +332,78 @@ tcp   LISTEN 0      50     *:8080     *:*    users:(("java",pid=13602,fd=8))
 
 [root@Jenkins ~]# ls -l /var/lib/jenkins/plugins/               #确认该目录下文件归属
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Zabbix安装配置
+
+```yml
+[root@pubserver zabbix]# vim 02-inst-zabbix.yml
+---
+- name: install zabbix
+  hosts: zabbix
+  tasks:
+    - name: install zabbix    # 安装软件包
+      yum:
+        name:
+          - zabbix-server-mysql
+          - zabbix-web-mysql
+          - zabbix-nginx-conf
+          - zabbix-sql-scripts
+          - zabbix-selinux-policy
+          - zabbix-agent
+          - mysql-server
+          - langpacks-zh_CN
+        state: present
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
