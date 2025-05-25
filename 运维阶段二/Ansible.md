@@ -941,26 +941,6 @@ playbook: test_ping.yml
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Ansible变量
 
 #### Ansible中的facts变量
