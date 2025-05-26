@@ -1,5 +1,46 @@
 # DBA
 
+## 配置文件
+
+MySQL 的配置文件分布在多个位置，其中 `/etc/my.cnf` 或 `/etc/mysql/my.cnf` 通常是主配置文件，而 `/etc/my.cnf.d/` 目录允许管理员添加额外的配置文件，以便更好地组织和管理设置。
+
+### `mysql-server.cnf` 文件结构
+
+
+
+```bash
+[mysqld]
+port= 3306 # 指定 MySQL Server 监听的 TCP/IP 端口，默认为 3306。
+socket=  # Unix 域套接字文件路径，用于本地连接。
+datadir= # 存储数据库文件的目录。
+log-error= #错误日志文件的位置。
+pid-file= 进程 ID 文件的位置，有助于管理系统进程。
+max_connections= 设置 MySQL Server 允许的最大并发连接数。
+innodb_buffer_pool_size= InnoDB 缓冲池大小，对于性能优化至关重要。
+character-set-server= 默认字符集，推荐设置为 utf8mb4。
+
+[client]
+port= 客户端连接到 MySQL Server 使用的端口号。
+socket= 客户端连接使用的 Unix 域套接字文件路径。
+default-character-set= 客户端默认使用的字符集。
+[mysql]
+auto-rehash= 启用自动补全功能。
+prompt= 自定义命令行提示符。
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## SQL语句分类
 
 ​    **DDL:** database define language，数据定义语句
@@ -322,7 +363,7 @@ Slave
 
 
 
-#### 
+
 
 #### 构建主从同步
 
@@ -981,7 +1022,7 @@ CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 # Redis
 
-#### 软件安装使用
+## 软件安装使用
 
 ```bash
 [root@redis64 ~]# yum -y install redis  安装软件
@@ -992,20 +1033,29 @@ tcp        0      0 127.0.0.1:6379    0.0.0.0:*    LISTEN      1970/redis-server
 [root@redis64 ~]# redis-cli  -h 192.168.88.64 -p 6364 –a 123456
 ```
 
-配置文件
+## 配置文件
 
 ```bash
-[root@redis64 ~]# vim /etc/redis.conf  
-69  bind 192.168.88.64  ##IP地址
-92  port 6364 ##端口号
-508 requirepass 123456  ##密码
-
-838 cluster-enabled  yes                         ##启用集群功能  
-846 cluster-config-file  nodes-6379.conf         ##存储集群信息文件
-852 cluster-node-timeout  5000  ##集群中主机通信超时时间
+# vim /etc/redis.conf  
+bind  #指定 Redis 服务监听的地址，默认是 127.0.0.1。
+port  #Redis 监听的 TCP 端口，默认是 6379。
+timeout #当客户端闲置多少秒后关闭连接，默认是 0，表示不关闭。
+## 2. 持久化选项
+save #设置 RDB 快照触发条件，格式如 save <seconds> <changes>，表示在给定秒内至少有多少次更改时自动保存快照。
+dbfilename # RDB 文件名称，默认为 dump.rdb。
+dir #RDB 文件和 AOF 文件存储路径。
+appendonly # 是否开启 AOF 持久化，默认关闭。开启后，所有写操作将被记录到 AOF 文件中。
+appendfsync # AOF 同步策略，可选值有 no、everysec、always，分别代表不同同步频率。
+## 3. 安全与访问控制
+requirepass # 设置 Redis 密码，增强安全性。
+rename-command # 可以重命名或者禁用某些命令来提高安全性。
+## 4. 性能优化
+maxmemory # 设置 Redis 最大可用内存，达到限制后会根据 maxmemory-policy 策略清除部分数据。
+maxmemory-policy #内存满时的数据淘汰策略，如 volatile-lru、allkeys-lru 等。
+hz # Redis 主循环每秒执行的任务次数，增加此值可以在高负载下提高响应速度，但也会消耗更多 CPU 资源。
 ```
 
-#### 常用命令
+## 基础命令
 
 - mset mget keys type
 - exists ttl expire move select
@@ -1169,7 +1219,6 @@ redis-cli --cluster call 192.168.88.56:6379 keys \*
 redis-cli -c -h 192.168.88.54 -p 6379
 
 # 高可用性，主节点停止后，它的从节点代替成为新的主节点。
-
 ```
 
 在web中的应用
@@ -1179,11 +1228,12 @@ yum -y install gcc pcre-devel zlib-devel make
 yum -y install nginx php php-fpm mysqld
 
 ## 加载redis模块
-
-
-
-
-
+./configure --with-php-config=/usr/bin/php-config 
+make && make install 
+ls /usr/lib64/php/modules/redis.so  
+vim /etc/php.ini  
+737 extension_dir = "/usr/lib64/php/modules/"   指定模块所在目录
+739 extension = "redis.so"  指定模块名
 ```
 
 
@@ -1203,6 +1253,365 @@ Redis击穿
 Redis穿透
 
 是指针对某个key的请求，在缓存和数据库中都不存在，导致每次请求都必须查询数据库，从而引发数据库压力过大、性能异常下降甚至瘫痪的现象。 
+
+
+
+
+
+
+
+## redis主从复制
+
+```bash
+# redis配置从节点
+redis-cli -h 192.168.88.61 6379
+## 指定主服务器ip和地址 和端口号
+192.162.88.62.:6379> replicaof 192.162.88.61 6379  
+## 永久保存配置
+192.162.88.62.:6379> config rewrite  
+## 查看从节点信息
+192.168.88.62:6379> info replication
+# Replication
+role:slave
+master_host:192.168.88.61
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:5
+master_sync_in_progress:0
+slave_repl_offset:126
+slave_priority:100
+slave_read_only:1
+connected_slaves:0
+master_replid:21869035b1c62e86f2f18ed26c72d87e2001d162
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:126
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1
+repl_backlog_histlen:126
+
+## 恢复为独立的数据库服务器
+192.168.88.63:6379> replicaof no one  
+```
+
+带密码验证
+
+```bash
+# host61主节点
+## 查看密码，默认redis服务没有密码
+192.168.88.61:6379> config get requirepass  
+1) "requirepass"
+2) ""
+## 设置密码
+192.168.88.61:6379> config set requirepass 123456  
+OK
+## 输入密码
+192.168.88.61:6379> auth 123456  
+OK
+## 保存配置
+192.168.88.61:6379> config rewrite 
+OK
+
+## host62,从节点配置
+192.168.88.62:6379> config set masterauth 123456  指定主服务器密码
+OK
+192.168.88.62:6379> config rewrite 保存配置
+OK
+192.168.88.62:6379> info replication 查看复制信息
+```
+
+## 哨兵服务
+
+```  bash
+]# vim /etc/redis-sentinel.conf   创建并编辑主配置文件
+bind 192.168.88.69  #指定哨兵服务使用ip地址
+port 26379  #指定哨兵服务监听端口
+protected-mode yes #保护模式
+daemonize yes  #服务守护进程方式运行服务
+dir /var/lib/redis  #工作目录
+logfile /var/log/redis/redis-sentinel.log  #日志文件
+sentinel monitor mymaster 192.168.88.67 6379 1  #监视master服务器Host67
+sentinel down-after-milliseconds mymaster 30000 #主观下线时间（30秒）
+sentinel failover-timeout mymaster 180000   #该时间内必须完成故障转移，否则再次尝试发起
+sentinel parallel-syncs mymaster 1 #控制在故障转移后，最多有多少个从节点同时从新的主节点同步数据。
+sentinel auth-pass mymaster 123456  #主节点设置了密码认证，则必须在此处提供密码
+
+sentinel notification-script mymaster /path/to/notification.sh #可用于发送邮件、短信、调用 Webhook 等
+sentinel client-reconfig-script mymaster /path/to/reconfig.sh #通常用于通知应用层或负载均衡器更新主节点地址
+```
+
+```bash
+systemctl  start redis-sentinel 启动哨兵服务
+netstat  -utnlp  | grep 26379  查看端口号
+```
+
+
+
+## Redis数据持久化
+
+### RDB数据持久化
+
+rdb相当于全量备份
+
+```bash
+# 设置存盘间隔120秒且10个key改变自动存盘
+[root@redis70 ~]# vim /etc/redis.conf      
+save  秒   变量个数
+save 900   1
+save 300   10
+save 120   10     # 2分钟内且有>=10个变量改变 
+save 60    10000
+```
+
+使用备份的dump.rdb文件恢复
+
+第1步 停止内存没有数据的redis服务
+
+第2步 使用有数据的dump.rdb文件覆盖没有数据dump.rdb文件
+
+第3步 修改文件的所有者和所属组用户为redis
+
+第4步 启动redis服务 并连接服务查看数据
+
+```bash
+[root@redis70 ~]# systemctl stop redis
+[root@redis70 ~]# cp /opt/dump.rdb  /var/lib/redis/
+[root@redis70 ~]# chown –R redis:redis  /var/lib/redis
+[root@redis70 ~]# systemctl start redis
+Starting Redis server...
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379
+192.168.88.70:6379> keys *
+ 1) "i"
+ 2) "d"
+ 3) "x"
+```
+
+
+
+
+
+
+
+### AOF数据持久化
+
+相当与增量备份
+
+```bash
+192.168.88.70:6379> config set  appendonly yes    启用aof文件
+OK
+192.168.88.70:6379> config get  appendonly  查看是否启用
+1) "appendonly"
+2) "yes"
+[root@redis70 ~]#wc –l  /var/lib/redis/appendonly.aof  查看文件行数
+```
+
+删除数据
+
+```bash
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379 连接服务
+192.168.88.70:6379> flushall  清空内存
+```
+
+恢复数据
+
+```bash
+第1步： 把没有数据的服务停止
+[root@redis70 ~]# systemctl stop redis
+第2步：覆盖aof文件
+[root@redis70 ~]# cp /opt/appendonly.aof  /var/lib/redis/
+                     
+第3步：启动redis服务并查看数据
+[root@redis70 ~]# systemctl start redis
+第4步：连接服务
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379  
+第五步骤：查看数据
+192.168.88.70:6379> keys *
+1) "v4"
+2) "v3"
+```
+
+
+
+## 数据类型
+
+![image-20250526155353289](images/image-20250526155353289.png)
+
+
+
+#### 字符类型
+
+- set getrange strlen append
+- decr decrby incr incrby incrbyfloat
+
+```bash
+
+# 递增数字  incr
+192.168.88.70:6379> set  num 1  //创建变量
+192.168.88.70:6379> INCR num    //+1
+(integer) 2
+192.168.88.70:6379> INCR num    //+1
+(integer) 3
+192.168.88.70:6379> GET num    
+
+# 增加指定数字  incrby
+192.168.88.70:6379> INCRBY num 2   //+2
+(integer) 5
+192.168.88.70:6379> INCRBY num 3   //+3
+(integer) 8
+- 递减数字
+192.168.88.70:6379> DECR num     //-1
+(integer) 7
+
+# 向尾部追加值  append
+192.168.88.70:6379> set hi  Hello   //创建变量hi
+OK
+192.168.88.70:6379> append  hi " World"   # 因为字符串包含空格，需要使用引号
+(integer) 11        # 返回值为hi的总长度
+192.168.88.70:6379> get hi
+"Hello World"
+
+
+
+# 获取字符串长度  strlen
+192.168.88.70:6379> strlen  hi
+(integer) 11
+- 中文字符返回字节数
+192.168.88.70:6379> set name 张三
+OK
+192.168.88.70:6379> strlen name
+
+
+# 获取变量部分数据 getrange
+192.168.88.70:6379> getrange zfc 0 1  //输出第1个到第2个字符
+"AB"
+192.168.88.70:6379> getrange zfc 2 4  //输出第3个到第5个字符
+"CEF"
+192.168.88.70:6379> getrange zfc -2 -1 //输出倒数第2个到第1个字符
+
+
+```
+
+
+
+#### 列表类型
+
+- lpush llen lrange lpop
+- rpush lindex lset rpop linsert
+
+```bash
+# LPUSH命令用来向列表左边增加元素，返回值表示增加元素后列表的长度
+192.168.88.70:6379> lpush  letter A B C 
+(integer) 3
+192.168.88.70:6379> type letter  查看类型
+list
+192.168.88.70:6379>
+//头部追加元素
+192.168.88.70:6379> lpush letter d e
+(integer) 5
+# 取出列表所有元素
+192.168.88.70:6379> lrange letter 0 -1
+1) "e"
+2) "d"
+3) "C"
+4) "B"
+5) "A"
+192.168.88.70:6379> llen letter
+(integer) 5
+# 统计元素个数
+llen letter
+
+# 输出单个元素 
+lindex letter 0
+
+
+# lset修改元素
+lset letter 0 E  修改第1元素
+
+# 删除元素
+lpop letter
+rpop letter
+
+# 尾部追加元素
+rpush letter e f
+
+```
+
+
+
+#### 散列类型
+
+- hset hmset hgetall hkeys hvals
+- hget hmget hdel
+
+```bash
+
+
+
+```
+
+#### 集合类型
+
+- sadd smembers scard srem sinter sunion sdiff
+
+- sismember srandmember spop
+
+```bash
+sadd mylike film music game  创建
+
+type mylike  查看数据类型
+
+srem mylike sleep game 删除成员
+
+SMEMBERS mylike 查看成员
+
+sismember mylike game  输出0表示不存在，1表示存在
+
+scard mylike  输出成员个数
+
+sunion  mylike helike  合集，合并2个集合的成员，重复的成员只显示一次
+
+sinter mylike helike   交集 输出2个集合中相同的成员
+
+sdiff mylike helike  差集: 比较2个集合成员的不同，用第一个集合 与 第二个集合比较
+
+srandmember  helike 2  在集合中随机取出2个不同成员。
+
+srandmember  helike -2  允许获取2个相同的成员
+
+spop helike   集合中随机弹出一个成员
+
+#有序集合类型命令
+zadd scores 88 tom 90 jerry 75 bob 92 alice  创建变量
+
+zcard scores 统计成员个数
+
+zrange scores 0 -1  输出成员名称
+
+zrange  scores 0 -1 withscores  输出成员名称及对应的值
+
+zscore  scores tom  获得某个成员的值
+ 
+zrangebyscore  scores 80 90  withscores 获得指定分数范围的元素
+
+zincrby  scores 3 bob 增加某个元素的分数
+
+zcount  scores 80 90  获得指定分数范围内的元素个数
+
+zincrby  scores 3 bob 增加某个元素的分数
+
+zcount  scores 80 90 - 获得指定分数范围内的元素个数
+
+zrem  scores bob  删除元素
+
+zrank scores tom   # 获取tom的排名
+
+zrevrank  scores alice   # 获取alice的排名
+```
+
+
+
+
 
 
 
