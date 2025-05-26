@@ -1,5 +1,49 @@
 # Linux软件安装配置使用
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## MySQL(MariaDB)
 
 #### 安装
@@ -113,7 +157,7 @@ ifnull(v1,v2) 如果v1不为NULL，则返回v1，否则返回v2
 
 ## Redis
 
-#### 安装
+#### yum安装
 
 ```bash
 yum -y install  redis
@@ -128,6 +172,86 @@ systemctl restart redis   # centos系统
 # 测试连接
 redis-cli -a my_password
 ```
+
+#### 源码安装
+
+```bash
+# 下载
+wget http://download.redis.io/releases/redis-6.2.6.tar.gz
+# yum -y install gcc make
+tar xf redis-6.2.6.tar.gz
+cd redis-6.2.6/
+make && make install PREFIX=/usr/local/reids/
+
+mkdir /usr/local/redis/{conf,logs,data}
+cp redis.conf /usr/local/redis/conf
+cd /usr/local/redis/
+
+# 修改redis配置文件
+vim conf/redis.conf
+sed -rn '75p;94p;257p;289p;302p;454p;901p' conf/redis.conf
+bind 0.0.0.0
+protected-mode no
+daemonize yes
+pidfile /usr/local/redis/logs/redis.pid
+logfile "/usr/local/redis/logs/redis.log"
+dir /usr/local/redis/data/
+requirepass 123456
+
+# 配置redis运行脚本
+vim redis
+#!/bin/bash
+REDIS_SERVER="/usr/local/redis/bin/redis-server"
+REDIS_CONF="/usr/local/redis/conf/redis.conf"
+REDIS_PORT=6379
+PID_FILE="/usr/local/redis/logs/redis.pid"
+case $1 in
+status)
+if [ -e "${PID_FILE}" ];then
+echo "Redis is Running..."
+else
+echo "Redis is not Running..."
+fi
+;;
+start)
+if [ -e "${PID_FILE}" ];then
+echo "Redis is Running..."
+exit 11
+fi
+${REDIS_SERVER} ${REDIS_CONF} &> /dev/null
+sleep 2
+if [ -e "${PID_FILE}" ];then
+echo "Redis Starting..."
+else
+echo "Redis Start Failed, Please Check in Manual..."
+fi
+;;
+stop)
+if [ -e "${PID_FILE}" ];then
+pkill redis-server
+else
+echo "Redis is not Running..."
+fi
+;;
+restart)
+if [ -e "${PID_FILE}" ];then
+pkill redis-server
+fi
+${REDIS_SERVER} ${REDIS_CONF}
+;;
+*)
+echo "Usage $0 {status|start|stop|restart}"
+esac
+
+# 启动redis运行脚本
+chmod +x redis
+./redis start
+
+```
+
+
+
+
 
 #### 配置文件
 
@@ -288,6 +412,78 @@ tcp   LISTEN 0      50     *:8080     *:*    users:(("java",pid=13602,fd=8))
 
 [root@Jenkins ~]# ls -l /var/lib/jenkins/plugins/               #确认该目录下文件归属
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Zabbix安装配置
+
+```yml
+[root@pubserver zabbix]# vim 02-inst-zabbix.yml
+---
+- name: install zabbix
+  hosts: zabbix
+  tasks:
+    - name: install zabbix    # 安装软件包
+      yum:
+        name:
+          - zabbix-server-mysql
+          - zabbix-web-mysql
+          - zabbix-nginx-conf
+          - zabbix-sql-scripts
+          - zabbix-selinux-policy
+          - zabbix-agent
+          - mysql-server
+          - langpacks-zh_CN
+        state: present
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

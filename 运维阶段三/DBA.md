@@ -1,5 +1,46 @@
 # DBA
 
+## 配置文件
+
+MySQL 的配置文件分布在多个位置，其中 `/etc/my.cnf` 或 `/etc/mysql/my.cnf` 通常是主配置文件，而 `/etc/my.cnf.d/` 目录允许管理员添加额外的配置文件，以便更好地组织和管理设置。
+
+### `mysql-server.cnf` 文件结构
+
+
+
+```bash
+[mysqld]
+port= 3306 # 指定 MySQL Server 监听的 TCP/IP 端口，默认为 3306。
+socket=  # Unix 域套接字文件路径，用于本地连接。
+datadir= # 存储数据库文件的目录。
+log-error= #错误日志文件的位置。
+pid-file= 进程 ID 文件的位置，有助于管理系统进程。
+max_connections= 设置 MySQL Server 允许的最大并发连接数。
+innodb_buffer_pool_size= InnoDB 缓冲池大小，对于性能优化至关重要。
+character-set-server= 默认字符集，推荐设置为 utf8mb4。
+
+[client]
+port= 客户端连接到 MySQL Server 使用的端口号。
+socket= 客户端连接使用的 Unix 域套接字文件路径。
+default-character-set= 客户端默认使用的字符集。
+[mysql]
+auto-rehash= 启用自动补全功能。
+prompt= 自定义命令行提示符。
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## SQL语句分类
 
 ​    **DDL:** database define language，数据定义语句
@@ -19,7 +60,7 @@
 
 
 
-## 事务：
+## Mysql事务：
 
 ​    针对于DML
 ​    一组SQL语句要么全部执行，要么全部不执行
@@ -123,7 +164,6 @@ grant 权限列表 on 库名 to 用户名@"客户端地址";
 ```sql
 //删除已有授权用户的权限
 pevoke 权限列表 on 库名 from 用户名@"客户端地址";
-
 ```
 
 
@@ -203,6 +243,16 @@ pevoke 权限列表 on 库名 from 用户名@"客户端地址";
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## MySQL锁
 
 锁类型：
@@ -216,6 +266,16 @@ pevoke 权限列表 on 库名 from 用户名@"客户端地址";
 ​				行级锁
 ​				表级锁
 ​				页级锁	
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -273,6 +333,370 @@ mysqlbinlog mysql52.000001 | mysql -uroot -p'123456'
 
 
 
+## Mysql主从同步
+
+#### 原理
+
+![image-20250521093049373](images/image-20250521093049373.png)
+
+Master
+
+--启用binlog日志，记录所有数据库更新和修改操作
+
+Slave
+
+--Slave_IO: 复制master主机 binlog日志文件里的sql命令到本机的relay-log文件里
+
+--Slave_SQL:执行本机relay-log文件里的SQL语句，实现Master数据一致。
+
+#### 主从同步结构
+
+一主一从:搭建简单,副本少
+
+主主复制:多节点写入容易造成死锁
+
+一主多从:副本多且无关联,主节点负载高
+
+联级复制:主节点负载相对低,但副本之间存在关联
+
+多主一从：
+
+
+
+
+
+#### 构建主从同步
+
+**一主一从**
+
+```bash
+## Master
+vim /etc/my.cnf.d/mysql-server.cnf
+[mysqld]
+log_bin=mysql53
+server_id=53
+
+mysql> create user repluser@"%" identified by "123456";
+mysql> grant replication slave on *.*  to repluser@"%";
+mysql> show master status;   #查看master状态信息
+
+## Slave
+vim /etc/my.cnf.d/mysql-server.cnf
+[mysqld]
+server-id=54
+
+mysql> change master to  
+master_host="192.168.88.53",        #主服务器ip地址
+master_user="repluser",			    #主服务器授权用户
+master_password="123456",		    #授权用户密码
+master_log_file="mysql53.000001",   #主服务器binlog日志
+master_log_pos=667;					#日志偏移量
+mysql> start slave ; 
+mysql> show slave status \G 
+```
+
+**一主多从**
+
+重复配置如上
+
+
+
+## MySQL读写分离
+
+**拓扑**
+
+![image-20250521190021418](images/image-20250521190021418.png)
+
+Mysql数据库的读操作和写操作分别分配到不同的服务器上，通过这种方式可以提高数据库的并发处理能力和性能、降低系统失败的风险。要保证负责读访问主机与负责写访问主机的数据一致。
+
+
+
+**中间软件**
+
+![image-20250521142844785](images/image-20250521142844785.png)
+
+
+
+
+
+### Mycat
+
+```bash
+# 安装
+## http://www.mycat.org.cn/ 下载启动包和核心jar
+yum -y install java-1.8.0-openjdk.x86_64
+unzip mycat2-install-template-1.21.zip
+mv mycat /usr/local/
+cp mycat2-1.21-release-jar-with-dependencies.jar  /usr/local/mycat/lib/
+chmod  +x /usr/local/mycat/bin/* 
+# 配置mycat服务器
+## 定义客户端mycat服务使用用户及密码
+vim /usr/local/mycat/conf/users/root.user.json 
+{
+        "dialect":"mysql",
+        "ip":null,
+        "password":"123456", 密码
+        "transactionType":"proxy",
+        "username":"mycat" 用户名
+}
+------
+## 定义连接的数据库服务器
+ vim /usr/local/mycat/conf/datasources/prototypeDs.datasource.json 
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"READ_WRITE",
+        "maxCon":1000,
+        "maxConnectTimeout":3000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"prototypeDs",
+        "password":"123456", #密码
+        "type":"JDBC",
+        "url":"jdbc:mysql://localhost:3306/mysql?useUnicode=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8", #连接本机的数据库服务
+        "user":"plj", #用户名
+        "weight":0
+}
+## 在mycat58主机运行数据库服务
+mysql> create user plj@"%" identified by "123456";  //创建plj用户
+mysql> grant all on *.* to plj@"%" ;   //授予权限
+mysql> exit  //断开连接
+
+## 启动mycat
+/usr/local/mycat/bin/mycat start
+netstat  -utnlp  | grep 8066
+tcp6       0      0 :::8066  :::*       LISTEN      57015/java      
+```
+
+ 
+
+**配置读写分离**
+
+```bash
+# 配置读写分离
+mysql -h127.0.0.1 -P8066 -umycat -p654321
+## 添加数据库服务器
+MySQL> /*+ mycat:createdatasource{
+"name":"whost56", 
+"url":"jdbc:mysql://192.168.88.56:3306",
+"user":"plja","password":"123456"
+}*/;
+MySQL> /*+ mycat:createdatasource{
+"name":"rhost57", 
+"url":"jdbc:mysql://192.168.88.57:3306",
+"user":"plja","password":"123456"
+}*/;
+## 查看数据源
+mysql> /*+mycat:showDataSources{}*/ \G
+## 配置数据库服务器添加plja用户
+[root@mysql56 ~]# mysql 
+mysql> create user plja@"%" identified by "123456";
+mysql> grant all on *.* to  plja@"%";
+## 创建集群
+mysql -h127.0.0.1 -P8066 -umycat -p123456
+mysql>/*!mycat:createcluster{
+"name":"rwcluster",
+"masters":["whost56"],
+"replicas":["rhost57"]
+}*/ ;
+## 查看集群信息
+mysql> /*+ mycat:showClusters{}*/ \G
+
+## 修改master角色主机仅负责写访问
+vim /usr/local/mycat/conf/datasources/whost56.datasource.json
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"WRITE", #仅负责写访问
+        "logAbandoned":true,
+        "maxCon":1000,
+        "maxConnectTimeout":30000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"whost56",
+        "password":"123456",
+        "queryTimeout":0,
+        "removeAbandoned":false,
+        "removeAbandonedTimeoutSecond":180,
+        "type":"JDBC",
+        "url":"jdbc:mysql://192.168.88.56:3306?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true",
+        "user":"plja",
+        "weight":0
+}
+//修改slave角色主机仅负责读访问
+vim /usr/local/mycat/conf/datasources/rhost57.datasource.json
+{
+        "dbType":"mysql",
+        "idleTimeout":60000,
+        "initSqls":[],
+        "initSqlsGetConnection":true,
+        "instanceType":"READ",  #仅负责读访问
+        "logAbandoned":true,
+        "maxCon":1000,
+        "maxConnectTimeout":30000,
+        "maxRetryCount":5,
+        "minCon":1,
+        "name":"rhost57",
+        "password":"123456",
+        "queryTimeout":0,
+        "removeAbandoned":false,
+        "removeAbandonedTimeoutSecond":180,
+        "type":"JDBC",
+        "url":"jdbc:mysql://192.168.88.57:3306?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true",
+        "user":"plja",
+        "weight":0
+}
+//修改读策略
+vim /usr/local/mycat/conf/clusters/rwcluster.cluster.json 
+{
+        "clusterType":"MASTER_SLAVE",
+        "heartbeat":{
+                "heartbeatTimeout":1000,
+                "maxRetryCount":3,
+                "minSwitchTimeInterval":300,
+                "showLog":false,
+                "slaveThreshold":0.0
+        },
+        "masters":[
+                "whost56"
+        ],
+        "maxCon":2000,
+        "name":"rwcluster",
+        "readBalanceType":"BALANCE_ALL_READ", #把读访问平均分配给read角色的主机
+        "replicas":[
+                "rhost57"
+        ],
+        "switchType":"SWITCH"
+}
+```
+
+
+
+
+
+
+
+## 数据分片
+
+![image-20250522101716350](images/image-20250522101716350.png)
+
+- 水平分库
+
+将表水平切分分散到不同的库里，每个库有相同的表，但表里的数据不同。
+
+![image-20250522163252600](images/image-20250522163252600.png)
+
+- 水平分表
+
+表的结构不变，数据分散存储到不同表中。每个表的结构一样、数据不一样，所有表的数据合并是表的总数据
+
+
+
+![image-20250522163314080](images/image-20250522163314080.png)
+
+
+
+
+
+![image-20250522163141864](images/image-20250522163141864.png)
+
+
+
+![image-20250522163218894](images/image-20250522163218894.png)
+
+![image-20250522163007130](images/image-20250522163007130.png)
+
+![image-20250522163038050](images/image-20250522163038050.png)
+
+
+
+
+
+```bash
+/*+ mycat:createdatasource{
+"name":"dw1", 
+"url":"jdbc:mysql://192.168.88.61:3306",
+"user":"plj",
+"password":"123456"
+}*/;
+
+/*+ mycat:createdatasource{
+"name":"dr1", 
+"url":"jdbc:mysql://192.168.88.62:3306",
+"user":"plj",
+"password":"123456"
+}*/;
+
+
+/*!mycat:createcluster{
+"name":"c1",
+"masters":["dw1"],
+"replicas":["dr1"]
+}*/;
+
+/*+ mycat:showClusters{}*/ \G
+
+
+
+```
+
+```sql
+create table tarena.employees(
+employee_id  int  primary key,
+name char(10),dept_id int , 
+mail varchar(30)
+) default charset utf8
+dbpartition BY mod_hash(employee_id) tbpartition BY mod_hash(employee_id) 
+tbpartitions 1 dbpartitions 2;
+
+/*
+dbpartitions 2  指定数据库分片的数量为2
+tbpartitions 1  指定每个数据库中表分区数量为1
+*/
+
+
+
+```
+
+**关联表**
+
+MyCat2中对于关联表，不需要有过多的声明，他可以根据分片规则自行判断。--- 相同的分片算法、字段id 例如  ` mod_hash (employee_id)  `
+
+```sql
+create table tarena.salary(
+employee_id int primary key, 
+p_date date , basic int , bonus int 
+) DEFAULT CHARSET=utf8 
+dbpartition BY mod_hash(employee_id) 
+tbpartition BY mod_hash(employee_id) tbpartitions 1;
+```
+
+**全局表**
+
+```sql
+create table tarena.dept(
+dept_id int, 
+dept_name char(10),
+primary key(dept_id)
+)default charset utf8  broadcast;
+
+/*分片策略  broadcast 不分片，广播给所有数据库节点。
+```
+
+
+
+## MySQL高可用解决方案:
+
+​	MySQL双主+Keepalived
+​	MySQL-MMM集群
+​	MySQL-MHA集群
+​	MySQL-Galera集群
+​	PXC集群
+​	MySQL-MGR集群
 
 
 
@@ -283,7 +707,16 @@ mysqlbinlog mysql52.000001 | mysql -uroot -p'123456'
 
 
 
-## 命令使用
+
+
+
+## SQL使用
+
+#### 修改用户密码
+
+```sql
+ALTER USER 'username'@'host' IDENTIFIED BY '新密码';
+```
 
 #### 修改表
 
@@ -589,7 +1022,7 @@ CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 # Redis
 
-#### 软件安装使用
+## 软件安装使用
 
 ```bash
 [root@redis64 ~]# yum -y install redis  安装软件
@@ -600,20 +1033,29 @@ tcp        0      0 127.0.0.1:6379    0.0.0.0:*    LISTEN      1970/redis-server
 [root@redis64 ~]# redis-cli  -h 192.168.88.64 -p 6364 –a 123456
 ```
 
-配置文件
+## 配置文件
 
 ```bash
-[root@redis64 ~]# vim /etc/redis.conf  
-69  bind 192.168.88.64  ##IP地址
-92  port 6364 ##端口号
-508 requirepass 123456  ##密码
-
-838 cluster-enabled  yes                         ##启用集群功能  
-846 cluster-config-file  nodes-6379.conf         ##存储集群信息文件
-852 cluster-node-timeout  5000  ##集群中主机通信超时时间
+# vim /etc/redis.conf  
+bind  #指定 Redis 服务监听的地址，默认是 127.0.0.1。
+port  #Redis 监听的 TCP 端口，默认是 6379。
+timeout #当客户端闲置多少秒后关闭连接，默认是 0，表示不关闭。
+## 2. 持久化选项
+save #设置 RDB 快照触发条件，格式如 save <seconds> <changes>，表示在给定秒内至少有多少次更改时自动保存快照。
+dbfilename # RDB 文件名称，默认为 dump.rdb。
+dir #RDB 文件和 AOF 文件存储路径。
+appendonly # 是否开启 AOF 持久化，默认关闭。开启后，所有写操作将被记录到 AOF 文件中。
+appendfsync # AOF 同步策略，可选值有 no、everysec、always，分别代表不同同步频率。
+## 3. 安全与访问控制
+requirepass # 设置 Redis 密码，增强安全性。
+rename-command # 可以重命名或者禁用某些命令来提高安全性。
+## 4. 性能优化
+maxmemory # 设置 Redis 最大可用内存，达到限制后会根据 maxmemory-policy 策略清除部分数据。
+maxmemory-policy #内存满时的数据淘汰策略，如 volatile-lru、allkeys-lru 等。
+hz # Redis 主循环每秒执行的任务次数，增加此值可以在高负载下提高响应速度，但也会消耗更多 CPU 资源。
 ```
 
-#### 常用命令
+## 基础命令
 
 - mset mget keys type
 - exists ttl expire move select
@@ -668,6 +1110,504 @@ del name
 ​	通过集群，Redis解决了写操作无法实现负载均衡，以及存储能力受到了单机限制的问题，实现了较为完善的高可用方案。
 
 
+
+
+
+
+
+
+
+## redis集群三主三从
+
+搭建集群
+
+```bash
+## ansible-playbook 配置redis
+---
+- name: set redis.conf
+  hosts: all
+  become: yes
+  vars: 
+    redis_port: 6379
+    cluster_config_file: "nodes-{{ redis_port }}.conf"
+    cluster_node_timeout: 5000
+  tasks:
+    - name: install redis
+      yum:
+        name: redis
+        state: present
+    
+    - name: set bind
+      lineinfile:
+        path: /etc/redis.conf
+        regexp: '^bind'
+        line: 'bind {{ ansible_host }}'
+        backrefs: no
+
+    - name: 修改 port 行（第92行）
+      lineinfile:
+        path: /etc/redis.conf
+        regexp: '^port'
+        line: 'port {{ redis_port }}'
+        backrefs: no
+
+    - name: 替换第838行：启用集群模式
+      shell: |
+        sudo sed -i '838c\cluster-enabled yes' /etc/redis.conf
+
+    - name: 替换第846行：设置集群配置文件
+      shell: |
+        sudo sed -i '846c\cluster-config-file {{ cluster_config_file }}' /etc/redis.conf
+
+    - name: 替换第852行：设置集群节点超时时间
+      shell: |
+        sudo sed -i '852c\cluster-node-timeout {{ cluster_node_timeout }}' /etc/redis.conf
+
+    - name: 启动并启用 Redis 服务
+      systemd:
+        name: redis
+        enabled: yes
+        state: started        
+```
+
+创建redis集群
+
+```bash
+# 创建redis集群
+redis-cli  --cluster   create   192.168.88.51:6379  192.168.88.52:6379  192.168.88.53:6379  192.168.88.54:6379 192.168.88.55:6379 192.168.88.56:6379  --cluster-replicas 1
+>>> Creating cluster
+>>> Performing hash slots allocation on 6 nodes...
+Using 3 masters:
+192.168.88.51:6379
+192.168.88.52:6379
+192.168.88.53:6379
+Adding replica 192.168.88.55:6379 to 192.168.88.51:6379
+Adding replica 192.168.88.56:6379 to 192.168.88.52:6379
+Adding replica 192.168.88.54:6379 to 192.168.88.53:6379
+M: 0eb3b7aa0493a19189cba35b0c658202cc20884b 192.168.88.51:6379
+   slots:0-5460 (5461 slots) master
+M: a9cb8ccd31bf3eb70433c00906c9f1a99b5e8441 192.168.88.52:6379
+   slots:5461-10922 (5462 slots) master
+M: f2c1bdb78d8d224c3666fa6440bdf80ba563c581 192.168.88.53:6379
+   slots:10923-16383 (5461 slots) master
+S: bdba77868965371680fa825badff59bf8ef95a81 192.168.88.54:6379
+   replicates f2c1bdb78d8d224c3666fa6440bdf80ba563c581
+S: 11510f42bfd9cf667bab5f31c01476d94984200a 192.168.88.55:6379
+   replicates 0eb3b7aa0493a19189cba35b0c658202cc20884b
+S: fe572ce003ee634c52adc4b42d92d15f847937d7 192.168.88.56:6379
+   replicates a9cb8ccd31bf3eb70433c00906c9f1a99b5e8441
+Can I set the above configuration? (type 'yes' to accept): yes 同意 
+....
+....
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.  //创建成功的提示
+```
+
+
+
+集群操作命令
+
+```bash
+# 查看集群的主节点
+redis-cli  --cluster  info 192.168.88.51:6379
+# 查看集群的主节点和从节点
+redis-cli --cluster check 192.168.88.53:6379
+# 查看集群里所有的key
+redis-cli --cluster call 192.168.88.56:6379 keys \*
+redis-cli -c -h 192.168.88.54 -p 6379
+
+# 高可用性，主节点停止后，它的从节点代替成为新的主节点。
+```
+
+在web中的应用
+
+```bash
+yum -y install gcc pcre-devel zlib-devel make
+yum -y install nginx php php-fpm mysqld
+
+## 加载redis模块
+./configure --with-php-config=/usr/bin/php-config 
+make && make install 
+ls /usr/lib64/php/modules/redis.so  
+vim /etc/php.ini  
+737 extension_dir = "/usr/lib64/php/modules/"   指定模块所在目录
+739 extension = "redis.so"  指定模块名
+```
+
+
+
+
+
+
+
+Redis雪崩
+
+在某个时间段内，Redis节点集群中大量的缓存数据同时过期或者失败，导致瞬间来了大量的请求，从而引发Redis服务性能异常下降甚至瘫痪的现象。
+
+Redis击穿
+
+在某个时间点上，针对某一个特定的key大量的请求到来，而该key恰好又不存在或者已经失效，导致请求全部落到数据库上，从而引发数据库压力过大、性能异常下降甚至瘫痪的现象
+
+Redis穿透
+
+是指针对某个key的请求，在缓存和数据库中都不存在，导致每次请求都必须查询数据库，从而引发数据库压力过大、性能异常下降甚至瘫痪的现象。 
+
+
+
+
+
+
+
+## redis主从复制
+
+```bash
+# redis配置从节点
+redis-cli -h 192.168.88.61 6379
+## 指定主服务器ip和地址 和端口号
+192.162.88.62.:6379> replicaof 192.162.88.61 6379  
+## 永久保存配置
+192.162.88.62.:6379> config rewrite  
+## 查看从节点信息
+192.168.88.62:6379> info replication
+# Replication
+role:slave
+master_host:192.168.88.61
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:5
+master_sync_in_progress:0
+slave_repl_offset:126
+slave_priority:100
+slave_read_only:1
+connected_slaves:0
+master_replid:21869035b1c62e86f2f18ed26c72d87e2001d162
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:126
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1
+repl_backlog_histlen:126
+
+## 恢复为独立的数据库服务器
+192.168.88.63:6379> replicaof no one  
+```
+
+带密码验证
+
+```bash
+# host61主节点
+## 查看密码，默认redis服务没有密码
+192.168.88.61:6379> config get requirepass  
+1) "requirepass"
+2) ""
+## 设置密码
+192.168.88.61:6379> config set requirepass 123456  
+OK
+## 输入密码
+192.168.88.61:6379> auth 123456  
+OK
+## 保存配置
+192.168.88.61:6379> config rewrite 
+OK
+
+## host62,从节点配置
+192.168.88.62:6379> config set masterauth 123456  指定主服务器密码
+OK
+192.168.88.62:6379> config rewrite 保存配置
+OK
+192.168.88.62:6379> info replication 查看复制信息
+```
+
+## 哨兵服务
+
+```  bash
+]# vim /etc/redis-sentinel.conf   创建并编辑主配置文件
+bind 192.168.88.69  #指定哨兵服务使用ip地址
+port 26379  #指定哨兵服务监听端口
+protected-mode yes #保护模式
+daemonize yes  #服务守护进程方式运行服务
+dir /var/lib/redis  #工作目录
+logfile /var/log/redis/redis-sentinel.log  #日志文件
+sentinel monitor mymaster 192.168.88.67 6379 1  #监视master服务器Host67
+sentinel down-after-milliseconds mymaster 30000 #主观下线时间（30秒）
+sentinel failover-timeout mymaster 180000   #该时间内必须完成故障转移，否则再次尝试发起
+sentinel parallel-syncs mymaster 1 #控制在故障转移后，最多有多少个从节点同时从新的主节点同步数据。
+sentinel auth-pass mymaster 123456  #主节点设置了密码认证，则必须在此处提供密码
+
+sentinel notification-script mymaster /path/to/notification.sh #可用于发送邮件、短信、调用 Webhook 等
+sentinel client-reconfig-script mymaster /path/to/reconfig.sh #通常用于通知应用层或负载均衡器更新主节点地址
+```
+
+```bash
+systemctl  start redis-sentinel 启动哨兵服务
+netstat  -utnlp  | grep 26379  查看端口号
+```
+
+
+
+## Redis数据持久化
+
+### RDB数据持久化
+
+rdb相当于全量备份
+
+```bash
+# 设置存盘间隔120秒且10个key改变自动存盘
+[root@redis70 ~]# vim /etc/redis.conf      
+save  秒   变量个数
+save 900   1
+save 300   10
+save 120   10     # 2分钟内且有>=10个变量改变 
+save 60    10000
+```
+
+使用备份的dump.rdb文件恢复
+
+第1步 停止内存没有数据的redis服务
+
+第2步 使用有数据的dump.rdb文件覆盖没有数据dump.rdb文件
+
+第3步 修改文件的所有者和所属组用户为redis
+
+第4步 启动redis服务 并连接服务查看数据
+
+```bash
+[root@redis70 ~]# systemctl stop redis
+[root@redis70 ~]# cp /opt/dump.rdb  /var/lib/redis/
+[root@redis70 ~]# chown –R redis:redis  /var/lib/redis
+[root@redis70 ~]# systemctl start redis
+Starting Redis server...
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379
+192.168.88.70:6379> keys *
+ 1) "i"
+ 2) "d"
+ 3) "x"
+```
+
+
+
+
+
+
+
+### AOF数据持久化
+
+相当与增量备份
+
+```bash
+192.168.88.70:6379> config set  appendonly yes    启用aof文件
+OK
+192.168.88.70:6379> config get  appendonly  查看是否启用
+1) "appendonly"
+2) "yes"
+[root@redis70 ~]#wc –l  /var/lib/redis/appendonly.aof  查看文件行数
+```
+
+删除数据
+
+```bash
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379 连接服务
+192.168.88.70:6379> flushall  清空内存
+```
+
+恢复数据
+
+```bash
+第1步： 把没有数据的服务停止
+[root@redis70 ~]# systemctl stop redis
+第2步：覆盖aof文件
+[root@redis70 ~]# cp /opt/appendonly.aof  /var/lib/redis/
+                     
+第3步：启动redis服务并查看数据
+[root@redis70 ~]# systemctl start redis
+第4步：连接服务
+[root@redis70 ~]# redis-cli -h 192.168.88.70 -p 6379  
+第五步骤：查看数据
+192.168.88.70:6379> keys *
+1) "v4"
+2) "v3"
+```
+
+
+
+## 数据类型
+
+![image-20250526155353289](images/image-20250526155353289.png)
+
+
+
+#### 字符类型
+
+- set getrange strlen append
+- decr decrby incr incrby incrbyfloat
+
+```bash
+
+# 递增数字  incr
+192.168.88.70:6379> set  num 1  //创建变量
+192.168.88.70:6379> INCR num    //+1
+(integer) 2
+192.168.88.70:6379> INCR num    //+1
+(integer) 3
+192.168.88.70:6379> GET num    
+
+# 增加指定数字  incrby
+192.168.88.70:6379> INCRBY num 2   //+2
+(integer) 5
+192.168.88.70:6379> INCRBY num 3   //+3
+(integer) 8
+- 递减数字
+192.168.88.70:6379> DECR num     //-1
+(integer) 7
+
+# 向尾部追加值  append
+192.168.88.70:6379> set hi  Hello   //创建变量hi
+OK
+192.168.88.70:6379> append  hi " World"   # 因为字符串包含空格，需要使用引号
+(integer) 11        # 返回值为hi的总长度
+192.168.88.70:6379> get hi
+"Hello World"
+
+
+
+# 获取字符串长度  strlen
+192.168.88.70:6379> strlen  hi
+(integer) 11
+- 中文字符返回字节数
+192.168.88.70:6379> set name 张三
+OK
+192.168.88.70:6379> strlen name
+
+
+# 获取变量部分数据 getrange
+192.168.88.70:6379> getrange zfc 0 1  //输出第1个到第2个字符
+"AB"
+192.168.88.70:6379> getrange zfc 2 4  //输出第3个到第5个字符
+"CEF"
+192.168.88.70:6379> getrange zfc -2 -1 //输出倒数第2个到第1个字符
+
+
+```
+
+
+
+#### 列表类型
+
+- lpush llen lrange lpop
+- rpush lindex lset rpop linsert
+
+```bash
+# LPUSH命令用来向列表左边增加元素，返回值表示增加元素后列表的长度
+192.168.88.70:6379> lpush  letter A B C 
+(integer) 3
+192.168.88.70:6379> type letter  查看类型
+list
+192.168.88.70:6379>
+//头部追加元素
+192.168.88.70:6379> lpush letter d e
+(integer) 5
+# 取出列表所有元素
+192.168.88.70:6379> lrange letter 0 -1
+1) "e"
+2) "d"
+3) "C"
+4) "B"
+5) "A"
+192.168.88.70:6379> llen letter
+(integer) 5
+# 统计元素个数
+llen letter
+
+# 输出单个元素 
+lindex letter 0
+
+
+# lset修改元素
+lset letter 0 E  修改第1元素
+
+# 删除元素
+lpop letter
+rpop letter
+
+# 尾部追加元素
+rpush letter e f
+
+```
+
+
+
+#### 散列类型
+
+- hset hmset hgetall hkeys hvals
+- hget hmget hdel
+
+```bash
+
+
+
+```
+
+#### 集合类型
+
+- sadd smembers scard srem sinter sunion sdiff
+
+- sismember srandmember spop
+
+```bash
+sadd mylike film music game  创建
+
+type mylike  查看数据类型
+
+srem mylike sleep game 删除成员
+
+SMEMBERS mylike 查看成员
+
+sismember mylike game  输出0表示不存在，1表示存在
+
+scard mylike  输出成员个数
+
+sunion  mylike helike  合集，合并2个集合的成员，重复的成员只显示一次
+
+sinter mylike helike   交集 输出2个集合中相同的成员
+
+sdiff mylike helike  差集: 比较2个集合成员的不同，用第一个集合 与 第二个集合比较
+
+srandmember  helike 2  在集合中随机取出2个不同成员。
+
+srandmember  helike -2  允许获取2个相同的成员
+
+spop helike   集合中随机弹出一个成员
+
+#有序集合类型命令
+zadd scores 88 tom 90 jerry 75 bob 92 alice  创建变量
+
+zcard scores 统计成员个数
+
+zrange scores 0 -1  输出成员名称
+
+zrange  scores 0 -1 withscores  输出成员名称及对应的值
+
+zscore  scores tom  获得某个成员的值
+ 
+zrangebyscore  scores 80 90  withscores 获得指定分数范围的元素
+
+zincrby  scores 3 bob 增加某个元素的分数
+
+zcount  scores 80 90  获得指定分数范围内的元素个数
+
+zincrby  scores 3 bob 增加某个元素的分数
+
+zcount  scores 80 90 - 获得指定分数范围内的元素个数
+
+zrem  scores bob  删除元素
+
+zrank scores tom   # 获取tom的排名
+
+zrevrank  scores alice   # 获取alice的排名
+```
 
 
 

@@ -123,7 +123,8 @@ sed -i '$a\192.75.217.56 www.baidu.com' /etc/hosts # $表示最后一行行号
 
 ## 提问环节
 
-问题一：sed  选项-r 、-i 、-n 的含义
+**问题一：sed  选项-r 、-i 、-n 的含义**
+
 <details><summary>点击展开</summary> <br>
 -n ： 屏蔽默认输出  <br>
 -i ： 修改文件内容   <br>
@@ -133,8 +134,7 @@ sed -i '$a\192.75.217.56 www.baidu.com' /etc/hosts # $表示最后一行行号
 
 
 
-
-问题二：sed 实现修改httpd监听端口为8088
+**问题二：sed 实现修改httpd监听端口为8088**
 
 <details> <summary>点击展开</summary> <br>sed -i '/^Listen/s/80/8088' /etc/httpd/conf/httpd.conf
 </details>
