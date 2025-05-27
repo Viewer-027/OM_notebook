@@ -5,6 +5,8 @@
 ### 容器安装部署
 
 ```bash
+# 添加 Docker 的官方仓库
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 # 安装 docker 服务
 [root@docker ~]# dnf install -y docker-ce
 [root@docker ~]# systemctl enable --now docker

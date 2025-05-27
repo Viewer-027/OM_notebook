@@ -4,46 +4,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## MySQL(MariaDB)
 
 #### 安装
@@ -460,6 +420,225 @@ tcp   LISTEN 0      50     *:8080     *:*    users:(("java",pid=13602,fd=8))
           - langpacks-zh_CN
         state: present
 ```
+
+
+
+
+
+
+
+
+
+## docker安装使用
+
+```bash
+# 添加 Docker 的官方仓库
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+yum install docker-ce -y
+yum install docker-compose-plugin -y
+
+vim /etc/docker/daemon.json 
+{
+  "registry-mirrors":["https://docker.xuanyuan.me"]
+}
+
+systemctl enable --now docker
+
+```
+
+
+
+```bash
+## 卸载
+yum remove docker docker-common docker-selinux docker-engine -y
+
+## 更新 yum 源
+curl -o /etc/yum.repos.d/CentOS-Base.repo https://repo.huaweicloud.com/repository/conf/CentOS-7-reg.repo
+yum -y install https://repo.huaweicloud.com/epel/epel-release-latest-7.noarch.rpm
+sed -i "s/#baseurl/baseurl/g" /etc/yum.repos.d/epel.repo
+sed -i "s/metalink/#metalink/g" /etc/yum.repos.d/epel.repo
+sed -i "s@https\?://download.fedoraproject.org/pub@https://repo.huaweicloud.com@g" /etc/yum.repos.d/epel.repo
+
+yum clean all
+yum makecache
+
+# 添加 docker-ce yum 源
+wget -O /etc/yum.repos.d/docker-ce.repo https://repo.huaweicloud.com/docker-ce/linux/centos/docker-ce.repo
+
+# 添加加速器
+mkdir -p /etc/docker
+tee /etc/docker/daemon.json <<-'EOF'
+{
+	"registry-mirrors":["https://qi3pe2q2.mirror.aliyuncs.com"]
+}
+EOF
+systemctl daemon-reload
+
+## docker
+yum install docker-ce -y
+yum install docker-compose -y
+
+systemctl start docker
+systemctl enable docker
+
+docker info
+docker version
+```
+
+### docker常用命令
+
+官方仓库  hub.docker.com
+
+自己私有仓库  Harbor
+
+阿里云私有仓库  registry.cn-hangzhou.aliyuncs.com
+
+```bash
+# docker 镜像命令
+
+docker  search [镜像名称]
+	-f #晒选
+docker 	pull   [镜像名称]
+
+docker  push   [镜像标签]
+
+docker  load  < [包名称]
+
+docker  save [镜像名称|镜像ID]
+
+docker	rmi  [镜像名称|镜像ID]
+	-f #强制删除
+docker  tag  [镜像ID]  镜像标签
+
+docker  images ls
+	-q #只显示镜像ID
+docker  images prune  #删除未指定的映像
+	-a #删除所有
+	
+docker  inspect [镜像名称|镜像ID]
+	-f # 格式化输出
+docker  login      #登陆镜像仓库，默认是官方，可以指定其他URL
+	--username|-u 用户名
+	--password|-p 密码
+	
+docker  history  [镜像ID|镜像名称] #查看镜像构建历史
+
+docker  commit [容器ID|容器名称] 保存名称：版本 # 保存正在运行的容器为镜像
+	-a 镜像作者
+	-p 提交期间暂停容器
+	-m 容器说明
+
+docker  export [容器ID] > [包名称] #保存正在运行的容器为镜像包
+
+docker  save  [镜像名称|镜像ID] > [包名称]  #保存镜像为镜像包
+```
+
+
+
+```bash
+# docker 容器命令
+docker ps [参数] #查看正在运行的容器列表
+	-a 查看系统中所有的容器
+	-q 仅显示容器的ID
+
+docker run [参数] [镜像名称] [运行容器的启动命令]
+	-d 守护进程方式运行
+	-name  指定容器名称
+	-p	指定端口映射
+	-P  随机端口映射
+	-it 以交互式方法打开一个伪终端
+	-dit 在后台运行伪终端
+	-v 主机目录:容器目录  #给容器挂载数据卷
+	--rm   #容器退出后立即删除
+	-e 环境变量  #在容器中创建环境变量
+	--link	#连上一个容器，实现网络互通
+	-h "主机名"  # 设置容器主机名
+	
+docker create [参数] [镜像名称] [运行容器的启动命令]
+	-参数与run 相同，但是没有 -d
+
+docker  start|stop [容器ID|名称]
+
+docker  rm [容器ID|名称]
+	-f 强制删除
+
+docker inspect [容器ID|名称]
+	-f '{{信息名称}}' #指定信息名称
+	
+docker cp [主机文件]  容器ID:容器文件
+
+docker cp 容器ID:容器文件  [主机文件]
+
+docker  exec/attach	 #进入容器
+
+nsenter : 建立一个管道连接上容器主ID
+
+```
+
+
+
+```bash
+# docker 网桥相关命令
+docker network ls  #查看网桥
+
+docker network create  [网桥名称]    #创建网桥           
+
+docker network inspect [网桥名称|ID] #查看网桥名称
+
+docker network  connet  [网络名称] [容器名称] # 添加容器网络到网桥中
+
+docker network  disconnet  [网络名称] [容器名称]  #断开容器与网桥的连接
+  
+docker network  rm  [网桥名称]  #删除网桥
+
+docker network  prune    #清除网桥
+
+```
+
+### Dockerfile
+
+```yml
+from  指定基础镜像
+
+maintainer  指定维护者信息
+
+run	  对指定镜像运行指令，结果反映到新镜像
+
+CMD   指定容器运行的默认命令
+CMD	["/usr/sbin/php-fpm","-c","/etc/php-fpm.d/www.conf"]
+CMD ["nginx","-g","daemon off;"]
+
+ADD : 将本地文件添加到镜像
+	ADD 支持自动解压，但是仅仅支持解压tar包
+	ADD 支持远程下载，但不会解压下载的内容
+	
+COPY 将文件复制到镜像
+
+ENV 设置一个容器的环境变量
+
+EXPOSE  指定容器需要向外界暴露的端口
+
+ARG 指定运行时参数
+
+volume	提示需要挂载的目录，实际没有挂载
+
+workdir 设置工作目录 
+程序运行的开始目录
+进入容器的最初目录
+
+onbuild
+构建触发器:当前镜像会被用作基础镜像时触发
+
+```
+
+
+
+
+
+
+
+
 
 
 
