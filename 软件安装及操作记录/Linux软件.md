@@ -306,7 +306,15 @@ git branch -d develop           #删除develop分支
 
 #有冲突分支合并（修改不同分支中相同文件的相同行）
 git merge hotfix                #合并hotfix分支到master分支
+
+git checkout --ours -- 运维阶段二/Ansible.md # 使用原本的分支
+git checkout --theirs -- 运维阶段二/Ansible.md #使用合并过来的分支
+
 ```
+
+
+
+
 
 #### git远程推送
 
@@ -320,6 +328,16 @@ git push -u origin "master"
 # -u或 --set-upstream: 这个选项创建了一个上游分支跟踪关系。这意味着之后你只需要运行 git push 而不需要指定远程仓库名和分支名，Git 会知道你要推送哪个本地分支到哪个远程分支运行 git pull 时，Git 也会知道从哪个远程分支拉取更新。
 
 ```
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -442,7 +460,6 @@ vim /etc/docker/daemon.json
 {
   "registry-mirrors":["https://docker.xuanyuan.me"]
 }
-
 systemctl enable --now docker
 
 ```
@@ -633,6 +650,74 @@ onbuild
 ```
 
 
+
+
+
+### compose
+
+```yaml
+services:
+  nginx:
+    image: myos:nginx
+    container_name: nginx
+    restart: always
+    volumes:
+      - type: bind
+        source: /root/websvc/nginx.conf
+        target: /usr/local/nginx/conf/nginx.conf
+      - type: bind
+        source: /var/webroot
+        target: /usr/local/nginx/html
+      - type: bind
+        source: /var/weblog
+        target: /usr/local/nginx/logs
+    network_mode: bridge
+    ports:
+      - 80:80
+  php-fpm:
+    image: myos:php-fpm
+    container_name: php-fpm
+    restart: always
+    volumes:
+      - type: bind
+        source: /var/webroot
+        target: /usr/local/nginx/html
+    depends_on:
+      - nginx
+    network_mode: "container:nginx"
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```bash
+[root@wordpress ~]# docker network create --driver bridge --subnet=192.168.0.0/16 --gateway=192.168.88.1 wordpress
+4652c2d85fa9b3a43806d238b26ac664f3a6e9320d454fb21b9d098764a271ee
+
+
+
+```
 
 
 

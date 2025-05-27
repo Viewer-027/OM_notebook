@@ -28,17 +28,22 @@ pdftotext -layout input.pdf output.txt  #提取pdf文本
 
 sudo pandoc -f gfm -t markdown -o output.md output.txt
 
+
 ```
 
 
 
 
 
+编辑vimrc文件，配置yml编写约束
 
-
-
-
-
+```
+## 编辑vimrc文件，配置yml编写约束
+[root@pubserver ansible]# vim ~/.vimrc
+set ai et ts=2
+set cursorline
+set cursorcolumn
+```
 
 
 
