@@ -511,9 +511,10 @@ docker version
 
 阿里云私有仓库  registry.cn-hangzhou.aliyuncs.com
 
+镜像操作命令
+
 ```bash
 # docker 镜像命令
-
 docker  search [镜像名称]
 	-f #晒选
 docker 	pull   [镜像名称]
@@ -551,7 +552,7 @@ docker  export [容器ID] > [包名称] #保存正在运行的容器为镜像包
 docker  save  [镜像名称|镜像ID] > [包名称]  #保存镜像为镜像包
 ```
 
-
+容器操作命令
 
 ```bash
 # docker 容器命令
@@ -587,7 +588,7 @@ docker cp [主机文件]  容器ID:容器文件
 
 docker cp 容器ID:容器文件  [主机文件]
 
-docker  exec/attach	 #进入容器
+docker  exec/attach	-it [容器名称] sh #进入容器
 
 nsenter : 建立一个管道连接上容器主ID
 
@@ -614,6 +615,12 @@ docker network  prune    #清除网桥
 ```
 
 ### Dockerfile
+
+```
+docker build -t .
+```
+
+
 
 ```yml
 from  指定基础镜像
@@ -689,7 +696,9 @@ services:
 
 
 
-
+```bash
+docker compose -f docker-compose.yaml up -d
+```
 
 
 

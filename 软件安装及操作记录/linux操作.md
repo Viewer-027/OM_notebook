@@ -49,6 +49,47 @@ set cursorcolumn
 
 
 
+git  配置ssh免密登录
+
+```bash
+ssh-keygen -t rsa    #改成ed25519后，在后续没法push
+
+cat ~/.ssh/id_rsa.pub
+
+ssh -T git@gitee.com 
+Hi Viewer-027(@viewer_027)! You've successfully authenticated, but GITEE.COM does not provide shell access.
+
+```
+
+git 配置http免密登录
+
+```bash
+#每次推送都需要认证，可以设置免密推送
+    #store：永久存储
+    #cache：默认缓存15分钟，期间无需认证，可通过cache --timeout=3600设置超时时间
+    #git remote add origin https://gitee.com/devops/myproject.git
+#持久保存密码
+[root@Programer myproject]# git config --global credential.helper store  #永久保存密码
+[root@Programer myproject]# git push                        #推送代码（本次需要认证）
+Username for 'http://192.168.88.20': mark   #用户名
+Password for 'http://mark@192.168.88.20':   #密码
+Everything up-to-date
+[root@Programer myproject]# git push                        #再次推送测试免密
+Everything up-to-date
+```
+
+
+
+
+
+ssh连接  配置免密登录
+
+```bash
+ssh-keygen
+
+ssh-copy-id   root@192.168.88.2  #拷贝公钥过去
+```
+
 
 
 
